@@ -34,6 +34,11 @@ namespace dd4hep  {
      *  \ingroup DD4HEP_SIMULATION
      */
     class LCIOEventReader : public Geant4EventReader  {
+    protected:
+      std::string m_ip_smear_file ;
+      typedef std::map<std::string, std::vector<double>> IP_Smear_Data;
+      IP_Smear_Data m_ip_smear_data;
+
     public:
       /// Initializing constructor
       LCIOEventReader(const std::string& nam);
@@ -46,6 +51,9 @@ namespace dd4hep  {
                                               std::vector<Particle*>& particles);
       /// Read an event and return a LCCollectionVec of MCParticles.
       virtual EventReaderStatus readParticleCollection(int event_number, EVENT::LCCollection** particles) = 0;
+
+      /// Get a filename containing IP smearing parameters
+      virtual EventReaderStatus setParameters( std::map< std::string, std::string > & parameters ) override ;
     };
 
   }     /* End namespace sim   */

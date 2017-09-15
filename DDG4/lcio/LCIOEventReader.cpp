@@ -25,6 +25,10 @@
 
 #include "G4Event.hh"
 
+#include <fstream>
+#include <sstream>
+#include <string>
+
 using namespace std;
 using namespace dd4hep;
 using namespace dd4hep::sim;
@@ -54,6 +58,49 @@ LCIOEventReader::LCIOEventReader(const string& nam)
 
 /// Default destructor
 LCIOEventReader::~LCIOEventReader()   {
+}
+
+/// A file containing IP smearing parameters
+LCIOEventReader::EventReaderStatus
+LCIOEventReader::setParameters(  std::map< std::string, std::string > & parameters ) {
+
+  _getParameterValue( parameters, "ipSmearFile", m_ip_smear_file, std::string(""));
+
+  if ( m_ip_smear_file.size() <= 0 )
+    return EVENT_READER_OK;
+ 
+  printout(INFO, "LCIOReader", "--- will get IP smear parameters from %s ", m_ip_smear_file.c_str());
+  
+  std::ifstream ipsmearFile( m_ip_smear_file.c_str(), std::ifstream::in );
+  if ( !ipsmearFile.is_open() ){
+    except("Could not open IP smear file: %s", m_ip_smear_file.c_str() );
+    return EVENT_READER_ERROR;
+  }
+  printout(INFO, "LCIOReader", "--- opened IP smear file: %s", m_ip_smear_file.c_str());
+  while ( !ipsmearFile.eof() ) {
+    // read line
+    std::string linebuf;
+    getline( ipsmearFile, linebuf );
+
+    // ignore comments
+    if (linebuf.substr(0,1) == "#") continue;
+
+    // ignore empty lines
+    if (linebuf.empty()) continue;
+   
+    // parse line
+    std::string nam;
+    std::vector<double> dxsx(6,0);
+    std::istringstream istr(linebuf);
+    istr >> nam >> dxsx[0] >> dxsx[1] >> dxsx[2] >> dxsx[3] >> dxsx[4] >> dxsx[5] ;
+
+    m_ip_smear_data[nam] = dxsx ;
+
+    printout(INFO, "LCIOReader", "--- IP smear parameter %s : Offset(%g,%g,%g), Sigma(%g,%g,%g) in mm unit.",nam.c_str(),
+                   dxsx[0], dxsx[1], dxsx[2],dxsx[3],dxsx[4] ,dxsx[5] ) ;
+  }
+
+  return EVENT_READER_OK;
 }
 
 
@@ -171,6 +218,40 @@ LCIOEventReader::readParticles(int event_number,
     if ( mcp->isOverlay() )                   status.set(G4PARTICLE_SIM_OVERLAY);
     particles.push_back(p);
   }
+  
+  // Smear IP vertex point here, if smear file is given
+  if ( m_ip_smear_file.size() <= 0 )
+    return EVENT_READER_OK;
+
+  EVENT::LCParameters* evt_param = getEventParameters();
+  float energy=evt_param.getFloatVal("Energy");
+  std::string beamspectrum= evt_param.getStringVal("BeamSpectrum");
+  int beamPDG0=evt_param.getIntVal("beamPDG0");
+  int beamPDG1=evt_param.getIntVal("beamPDG1");
+  std::sstringstream beamkey_stream;
+  beamkey_stream << int(energy) << "/" << beamspectrum << "/" << beamPDG0 << "/" << beamPDG1 ;
+  std::string beamkey = beamkey_stream.str();  
+  
+  printout(INFO, "LCIOReader", "--- LCIO Event header : Energy(%g), BeamSpectrum(%s), beamPDG0(%d), beamPDG1(%d)",
+               energy, beamspectrum, beamPDG0, beamPDG1);
+  printout(INFO, "LCIOReader", "--- IPSmearpara search key(%s)",beamkey.c_str());
+
+  IP_Smear_Data::iterator iterkey = m_ip_smear_data.find(beamkey);
+  if ( iterkey == m_ip_smear_data.end() ) {
+    except("Could not find beamkey for IP smearing. beamkey was %s", beamkey.c_str() );
+    return EVENT_READER_ERROR;
+  }
+  std::vector<double> dxsx = iterkey.second ;
+
+  std::cout << dxsx[0] << "," << dxsx[1] << "," << dxsx[2] ;
+  std::cout << dxsx[3] << "," << dxsx[4] << "," << dxsx[5] << std::endl;
+
+
+  
+    
+  
+
+
   return EVENT_READER_OK;
 }
 

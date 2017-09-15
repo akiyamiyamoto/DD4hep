@@ -51,6 +51,7 @@ namespace dd4hep  {
     protected:
       /// Reference to reader object
       IO::LCReader* m_reader;
+      EVENT::LCParameters* m_event_parameters;
     public:
       /// Initializing constructor
       LCIOFileReader(const std::string& nam);
@@ -61,6 +62,7 @@ namespace dd4hep  {
       virtual EventReaderStatus readParticleCollection(int event_number, EVENT::LCCollection** particles);
       virtual EventReaderStatus moveToEvent(int event_number);
       virtual EventReaderStatus skipEvent() { return EVENT_READER_OK; }
+      virtual EVENT::LCParameters* getEventParameters() { return m_event_parameters; }
     };
   }
 }
@@ -118,6 +120,7 @@ dd4hep::sim::LCIOFileReader::readParticleCollection(int /*event_number*/, EVENT:
     if ( *particles ) {
       printout(INFO,"LCIOFileReader","read collection %s from event %d in run %d ", 
                LCIO::MCPARTICLE, evt->getEventNumber(), evt->getRunNumber());
+      *m_event_parameters = evt->getParameters();
       return EVENT_READER_OK;
     }
   }
